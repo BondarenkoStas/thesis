@@ -52,40 +52,42 @@ def run_lgb(data, process):
     return output_metrics(model, data, process, with_val=True), model
 
 
-def run_nn(data, process):
-    def build_nn_model():
-        adamax = Adamax(learning_rate=0.001,beta_1=0.958,beta_2=0.987)
-        model = Sequential([
-        Dense(
-            256, 
-            activation='sigmoid', 
-            input_shape=[len(data['X_train'].keys())],
-            kernel_initializer='glorot_normal',
-            kernel_regularizer=l1_l2(l1=0.0001, l2=0.0001),
-            bias_regularizer=l1_l2(l1=0.001, l2=0.1)
-        ),
-        Dropout(0.005),
-        Dense(
-            256, 
-            activation='sigmoid',
-            kernel_initializer='glorot_normal',
-            kernel_regularizer=l1_l2(l1=0, l2=0.001),
-            bias_regularizer=l1_l2(l1=0.01, l2=0.01),
-        ),
-        Dropout(0.5),  
-        Dense(
-            1,
-            kernel_initializer='glorot_normal',
-            activation='linear'
-        )
-        ])
+def build_nn_model(input_shape):
+    adamax = Adamax(learning_rate=0.001,beta_1=0.958,beta_2=0.987)
+    model = Sequential([
+    Dense(
+        256, 
+        activation='sigmoid', 
+        input_shape=[input_shape],
+        kernel_initializer='glorot_normal',
+        kernel_regularizer=l1_l2(l1=0.0001, l2=0.0001),
+        bias_regularizer=l1_l2(l1=0.001, l2=0.1)
+    ),
+    Dropout(0.005),
+    Dense(
+        256, 
+        activation='sigmoid',
+        kernel_initializer='glorot_normal',
+        kernel_regularizer=l1_l2(l1=0, l2=0.001),
+        bias_regularizer=l1_l2(l1=0.01, l2=0.01),
+    ),
+    Dropout(0.5),  
+    Dense(
+        1,
+        kernel_initializer='glorot_normal',
+        activation='linear'
+    )
+    ])
 
-        model.compile(loss='mse',
-                    optimizer=adamax,
-                    metrics=['mae', 'mse'])
-        return model
-    model = build_nn_model()
-    # model.summary()
+    model.compile(loss='mse',
+                optimizer=adamax,
+                metrics=['mae', 'mse'])
+    return model
+
+
+def run_nn(data, process, with_val=True):
+    input_shape = len(data['X_train'].keys())
+    model = build_nn_model(input_shape)
 
     es = EarlyStopping(
         monitor='val_loss', 
@@ -93,15 +95,14 @@ def run_nn(data, process):
         verbose=1, 
         patience=20)
 
-    history = model.fit(
+    model.fit(
         data['X_train'], data['y_train'],
         epochs=10000, 
         validation_data=(data['X_test'], data['y_test']),
         verbose=0,
         batch_size=256,
         shuffle=True,
-#         callbacks=[tfdocs.modeling.EpochDots(), es])
         callbacks=[es])
     print('-----------------------------------------------')
     print('output NN')
-    return output_metrics(model, data, process, with_val=True), model
+    return output_metrics(model, data, process, with_val), model

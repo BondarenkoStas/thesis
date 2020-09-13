@@ -59,11 +59,11 @@ def predict(model, X_train, y_train, X_test, y_test, print_res=True):
     }
 
 
-def output_metrics(model, data, process, with_val=True):
+def output_metrics(model, data, process, with_val):
     num_cols = data['X_train'].shape[1]
     data_input = [data['X_train'], data['y_train']]
     data_input.extend(
-        [data['X_val'], data['y_val']] if with_val else [data['X_val'], data['y_val']])
+        [data['X_val'], data['y_val']] if with_val else [data['X_test'], data['y_test']])
     res = predict(model, *data_input, print_res=False)
 
     res_back = [
@@ -73,16 +73,15 @@ def output_metrics(model, data, process, with_val=True):
         res['predictions']['test'],
     ]
 
-    if process and process.y_process:
-        for apply_function in reversed(process.y_process):
-            res_back = [apply_function(arr) for arr in res_back]
-        res_back = [np.rint(arr) for arr in res_back]
+    for apply_function in reversed(process.y_process):
+        res_back = [apply_function(arr) for arr in res_back]
+    res_back = [np.rint(arr) for arr in res_back]
 
-        res_train = print_metrics(*res_back[:2], num_cols, 'train')
-        res_test = print_metrics(*res_back[2:], num_cols, 'test')
-        print_sorted_actual_to_predicted_graphs(*res_back, print_log=True)
-        return {'train': res_train, 'test': res_test}
-    return res['res']
+    res_train = print_metrics(*res_back[:2], num_cols, 'train')
+    res_test = print_metrics(*res_back[2:], num_cols, 'test')
+    print_sorted_actual_to_predicted_graphs(*res_back, print_log=True)
+    return {'train': res_train, 'test': res_test, 'result': res_back}
+
 
 def print_graphs(actual, predicted, title, print_log=False):
     length = len(actual)
