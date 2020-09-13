@@ -24,11 +24,6 @@ def parse_field_from_str_json_array(df, col_name, field):
     list_of_fields = [grab_field_from_array_of_objects(item, field) for item in list_of_items]
     return [sorted_string_from_array(item) for item in list_of_fields]
 
-
-
-
-
-
 def read_as_json2(string):
 #   get rid of not ascii characters
     s = string.encode("ascii", errors="ignore").decode()
