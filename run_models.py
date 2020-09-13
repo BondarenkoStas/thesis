@@ -10,6 +10,8 @@ from tensorflow.keras.layers import Dense, Activation, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l1_l2
 
+from sklearn.ensemble import RandomForestRegressor
+
 from importlib import reload
 import output
 from output import output_metrics
@@ -17,7 +19,23 @@ reload(output)
 from output import output_metrics
 
 
-def run_lgb(data, process):
+def run_rf(data, process, with_val=True):
+    model = RandomForestRegressor(
+        n_estimators=40,
+        max_depth=15,
+        min_samples_split=0.001,
+        min_samples_leaf=0.0005,
+        bootstrap=True,
+        max_samples=0.95,
+        criterion='mae', 
+        random_state=0, 
+        n_jobs=-1,
+    )
+    model.fit(data['X_train'], data['y_train'])
+    return output_metrics(model, data, process, with_val), model
+
+
+def run_lgb(data, process, with_val=True):
     model = lgb.LGBMRegressor(
         objective='huber',
         num_leaves=34,
@@ -49,7 +67,7 @@ def run_lgb(data, process):
     )
     print('-----------------------------------------------')
     print('output LGBMRegressor')
-    return output_metrics(model, data, process, with_val=True), model
+    return output_metrics(model, data, process, with_val), model
 
 
 def build_nn_model(input_shape):
