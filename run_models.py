@@ -123,4 +123,4 @@ def run_nn(data, process, with_val=True):
         callbacks=[es])
     print('-----------------------------------------------')
     print('output NN')
-    return output_metrics(model, data, process, with_val), model
+    return output_metrics(model, data, process, with_val)
