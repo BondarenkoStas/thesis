@@ -237,7 +237,7 @@ def create_average_columns(df, full_df=None, verbose=None):
 ######################################################
 # Split and process
 ######################################################
-def split_process_df(df_raw, reskew=True, train=0.8, test=0.1):
+def split_process_df(df_raw, reskew_X=True, reskew_y=True, train=0.8, test=0.1):
     def get_train_test_revenue(df):
         X = df.drop(['META__revenue'], axis=1)
         y = df['META__revenue']
@@ -256,10 +256,12 @@ def split_process_df(df_raw, reskew=True, train=0.8, test=0.1):
     
     data = {}
     imputer_func = KNNImputer(n_neighbors=30, weights='distance')
-    if reskew:
-        process = Process(X_train, X_test, X_val, y_train, y_test, y_val, imputer='func', imputer_func=imputer_func).skew_X().skew_y().fill_nan()
-    else:
-        process = Process(X_train, X_test, X_val, y_train, y_test, y_val, imputer='func', imputer_func=imputer_func).fill_nan()
+    process = Process(X_train, X_test, X_val, y_train, y_test, y_val, imputer='func', imputer_func=imputer_func)
+    if reskew_X:
+        process = process.skew_X()
+    if reskew_y:
+        process = process.skew_y()
+    process = process.fill_nan()
     data['X_train'], data['X_test'], data['X_val'], data['y_train'], data['y_test'], data['y_val'] = process.return_processed()
     return data, process
 

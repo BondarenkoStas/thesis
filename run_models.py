@@ -5,6 +5,7 @@ import tensorflow_docs.plots
 import tensorflow_docs.modeling
 
 from tensorflow.keras import Sequential
+from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adamax
 from tensorflow.keras.layers import Dense, Activation, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
@@ -97,13 +98,13 @@ def build_nn_model(input_shape):
     )
     ])
 
-    model.compile(loss='mse',
+    model.compile(loss=MeanSquaredError(),
                 optimizer=adamax,
                 metrics=['mae', 'mse'])
     return model
 
 
-def run_nn(data, process, with_val=True):
+def run_nn(data, process, with_val=True, verbose=0):
     input_shape = len(data['X_train'].keys())
     model = build_nn_model(input_shape)
 
@@ -111,13 +112,13 @@ def run_nn(data, process, with_val=True):
         monitor='val_loss', 
         mode='min', 
         verbose=1, 
-        patience=20)
+        patience=50)
 
     model.fit(
         data['X_train'], data['y_train'],
         epochs=10000, 
         validation_data=(data['X_test'], data['y_test']),
-        verbose=0,
+        verbose=verbose,
         batch_size=256,
         shuffle=True,
         callbacks=[es])
