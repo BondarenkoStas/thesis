@@ -13,7 +13,7 @@ def smape(A,P):
 def mape(A, P):
     return 100 * np.mean(np.abs((A - P)/A))
 
-def get_metrics(y_test, y_pred, cols, name):
+def get_metrics(y_test, y_pred, cols, name=''):
     SS_Residual = sum((y_test - y_pred)**2)
     SS_Total = sum((y_test - np.mean(y_test))**2)
     r2 = 1 - (float(SS_Residual))/SS_Total
@@ -109,3 +109,8 @@ def print_sorted_actual_to_predicted_graphs(train_real, train_pred, test_real, t
         print_graphs(test_real, test_pred, 'validation data: log scale', print_log=True)
     print_graphs(train_real, train_pred, 'train data')
     print_graphs(test_real, test_pred, 'validation data')
+
+def print_sorted_actual_to_predicted_graphs_only_test(y, yhat, print_log=False):
+    if print_log:
+        print_graphs(y, yhat, 'validation data: log scale', print_log=True)
+    print_graphs(y, yhat, 'validation data')

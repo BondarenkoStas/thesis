@@ -184,21 +184,21 @@ def set_experience(movie, column, group):
     return set_movie_column(movie, f'{column}_experience', movie['META__year'] - group['META__year'].min() if not group.empty else 0)
 
 def set_info_cast(movie, groups): 
-    return set_info(movie, groups, 'META__cast', 'cast', range(1,9), True, set_avg_profit, set_avg_revenue, set_experience)
+    return set_info(movie, groups, 'META__cast', 'cast', range(1,9), True, set_avg_profit, set_avg_revenue, set_experience, set_movies_before)
 def set_info_year(movie, groups): 
     return set_info(movie, groups, 'META__year', 'year', range(1), False, set_avg_profit, set_avg_revenue)
 def set_info_production_company(movie, groups): 
-    return set_info(movie, groups, 'META__production_company', 'production_company', range(1,4), True, set_avg_profit, set_avg_revenue)
+    return set_info(movie, groups, 'META__production_company', 'production_company', range(1,4), True, set_avg_profit, set_avg_revenue, set_movies_before)
 def set_info_collections(movie, groups):
     return set_info(movie, groups, 'META__collection_name', 'collection', range(1), True, set_avg_profit, set_avg_revenue)
 
 def set_info_crew(movie, dict_groups_crew):
     col_producer = 'META__crew__production__producer'
     movie = set_info(movie, dict_groups_crew[col_producer], col_producer, col_producer[6:], range(1,3), True, 
-                     set_avg_profit, set_avg_revenue)
+                     set_avg_profit, set_avg_revenue, set_movies_before)
     crew_columns = [column for column in dict_groups_crew.keys() if 'META__crew' in column and not col_producer in column]
     for column in crew_columns:
-        movie = set_info(movie, dict_groups_crew[column], column, column[6:], range(1), True, set_avg_profit, set_avg_revenue)
+        movie = set_info(movie, dict_groups_crew[column], column, column[6:], range(1), True, set_avg_profit, set_avg_revenue, set_movies_before)
     return movie
 
 def set_info_cast_avg(movie):
