@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pandas as pd
 import lightgbm as lgb
@@ -12,10 +13,11 @@ from tensorflow.keras.optimizers import Adamax
 from tensorflow.keras.layers import Dense, Activation, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l1_l2
+from tensorflow.keras.utils import to_categorical
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split, StratifiedKFold
 
 from importlib import reload
 import output, process_df
@@ -26,10 +28,10 @@ reload(process_df)
 from output import output_metrics, mape, smape, get_metrics, print_sorted_actual_to_predicted_graphs_only_test
 from process_df import Process, create_average_columns, split_process_df, split_df
 
-def get_df_work_columns(df):
-    return df[[col for col in df_full.columns if not 'META' in col or col == 'META__revenue']]
+def get_df_work_columns(df, df_columns):
+    return df[[col for col in df_columns if not 'META' in col or col == 'META__revenue']]
 
-def run_rf(data, process, with_val=True):
+def create_and_fit_regression_rf(X, y, X_val=None, y_val=None, verbose=0):
     model = RandomForestRegressor(
         n_estimators=40,
         max_depth=15,
@@ -38,18 +40,19 @@ def run_rf(data, process, with_val=True):
         bootstrap=True,
         max_samples=0.95,
         criterion='mae', 
-        random_state=0, 
+        random_state=0,
         n_jobs=-1,
+        verbose=verbose,
     )
-    model.fit(data['X_train'], data['y_train'])
-    return output_metrics(model, data, process, with_val), model
+    model.fit(X, y)
+    return model
 
 
-def run_lgb(data, process, with_val=True):
-    model = lgb.LGBMRegressor(
+def create_regression_lgb():
+    return lgb.LGBMRegressor(
         objective='huber',
         num_leaves=34,
-        learning_rate=0.001, 
+        learning_rate=0.01, 
         n_estimators=7500,
         max_bin=192,
         max_depth=0,
@@ -67,74 +70,62 @@ def run_lgb(data, process, with_val=True):
         subsample=0.39,
         tree_learner='data',
     )
-    model.fit(
-        data['X_train'].values, 
-        data['y_train'],
-        verbose=0,
-#         eval_metric=eval_metric,
-        eval_set=[(data['X_test'], data['y_test'])],
-        early_stopping_rounds=100
+
+def create_and_fit_regression_lgb(X, y, X_val, y_val, verbose=0, patience=30):
+    model = create_regression_lbg()
+    model = model.fit(X.values, y,
+        verbose=verbose,
+        eval_set=(X_val, y_val),
+        early_stopping_rounds=patience
     )
-    print('-----------------------------------------------')
-    print('output LGBMRegressor')
-    return output_metrics(model, data, process, with_val), model
-
-
-def build_nn_model(input_shape):
-    adamax = Adamax(learning_rate=0.001,beta_1=0.958,beta_2=0.987)
-    model = Sequential([
-    Dense(
-        256, 
-        activation='sigmoid', 
-        input_shape=[input_shape],
-        kernel_initializer='glorot_normal',
-        kernel_regularizer=l1_l2(l1=0.0001, l2=0.0001),
-        bias_regularizer=l1_l2(l1=0.001, l2=0.1)
-    ),
-    Dropout(0.005),
-    Dense(
-        256, 
-        activation='sigmoid',
-        kernel_initializer='glorot_normal',
-        kernel_regularizer=l1_l2(l1=0, l2=0.001),
-        bias_regularizer=l1_l2(l1=0.01, l2=0.01),
-    ),
-    Dropout(0.5),  
-    Dense(
-        1,
-        kernel_initializer='glorot_normal',
-        activation='linear'
-    )
-    ])
-
-    model.compile(loss=MeanSquaredError(),
-                optimizer=adamax,
-                metrics=['mae', 'mse'])
     return model
 
+def build_nn_model(input_shape=None, loss=MeanSquaredError()):
+    def get_model():
+        adamax = Adamax(learning_rate=0.001,beta_1=0.958,beta_2=0.987)
+        model = Sequential([
+            Dense(
+                256, 
+                activation='sigmoid', 
+                input_shape=input_shape,
+                kernel_initializer='glorot_normal',
+                kernel_regularizer=l1_l2(l1=0.0001, l2=0.0001),
+                bias_regularizer=l1_l2(l1=0.001, l2=0.1)
+            ),
+            Dropout(0.005),
+            Dense(
+                256, 
+                activation='sigmoid',
+                kernel_initializer='glorot_normal',
+                kernel_regularizer=l1_l2(l1=0, l2=0.001),
+                bias_regularizer=l1_l2(l1=0.01, l2=0.01),
+            ),
+            Dropout(0.5),
+            Dense(1, kernel_initializer='glorot_normal')
+        ])
 
-def run_nn(data, process, with_val=True, verbose=0):
-    input_shape = len(data['X_train'].keys())
-    model = build_nn_model(input_shape)
+        model.compile(loss=loss,
+                    optimizer=adamax,
+                    metrics=['mae', 'mse'])
+        return model
+    return get_model
 
+def create_and_fit_regression_nn(X, y, X_val, y_val, loss=MeanSquaredError(), verbose=0, patience=5, regressor_params={}):
+    model = build_nn_model([X.shape[1]], loss=loss)()
     es = EarlyStopping(
-        monitor='val_loss', 
+        monitor='val_loss',
         mode='min', 
-        verbose=1, 
-        patience=50)
+        verbose=verbose, 
+        patience=patience)
 
-    model.fit(
-        data['X_train'], data['y_train'],
+    history = model.fit(X, y,
         epochs=10000, 
-        validation_data=(data['X_test'], data['y_test']),
+        validation_data=(X_val, y_val),
         verbose=verbose,
         batch_size=256,
         shuffle=True,
         callbacks=[es])
-    print('-----------------------------------------------')
-    print('output NN')
-    return output_metrics(model, data, process, with_val)
-
+    return model, history
 
 class NN_estimator(BaseEstimator, RegressorMixin):
     def __init__(self, print_graphs = False):
@@ -143,8 +134,7 @@ class NN_estimator(BaseEstimator, RegressorMixin):
     
     def fit(self, X, y, **kwargs):
         self.process_ = kwargs['process']
-        input_shape = len(data['X_train'].keys())
-        model = build_nn_model(input_shape)
+        model = build_nn_model([data['X_train'].shape[1]])
 
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=20)
 
@@ -215,3 +205,95 @@ class OutliersEstimator(BaseEstimator, RegressorMixin):
         metric_results = {metric: np.mean([cv_results[split_index][metric] for split_index in range(len(cv_results))]) for metric in metrics}
         print(metric_results)
         return {'cv_iterations': cv_results, 'cv_metrics': metric_results}
+
+
+def get_classification_cv_predictions(
+    create_and_fit_fn, 
+    X, 
+    y, 
+    n_splits=10, 
+    validation_size=0.05, 
+    patience=100, 
+    model_params={}, 
+    verbose=0, 
+    validation_split=None,
+    convert_y_categorical=False,
+):
+    start = time.time()
+    predicted_proba = []
+    predicted_class = []
+    history = []
+
+    split_num=0
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=0)
+    for train_index, test_index in skf.split(X, y):
+        split_num+=1
+        print(f'split num: {split_num}')
+        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
+        y_train, y_test = y[train_index], y[test_index]
+        if convert_y_categorical:
+            y_train, y_test = to_categorical(y_train), to_categorical(y_test)
+        if validation_split:
+            X_val, y_val = None, None
+        else:
+            X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=validation_size)
+        model_return = create_and_fit_fn(X_train, y_train, X_val, y_val,
+            patience=patience, model_params=model_params.copy(), verbose=verbose, validation_split=validation_split)
+
+        if not isinstance(model_return, tuple):
+            model_return = (model_return, None)
+        if convert_y_categorical:
+            y_test = np.argmax(y_test, axis=-1)
+        predicted_proba.append((y_test, model_return[0].predict_proba(X_test)))
+        predicted_class.append((y_test, model_return[0].predict(X_test)))
+        history.append(model_return[1])
+    end = time.time()
+    print(f'{n_splits} CV time: {end - start}')
+    return predicted_proba, predicted_class, history
+
+def get_regression_cv_metrics(create_and_fit_fn, X, y, n_splits=10, patience=30, validation_size=0.05, 
+                                model_params={}, should_output_metrics=False, should_output_graphs=False, verbose=0, validation_split=None):
+    from sklearn.model_selection import KFold, train_test_split
+    start = time.time()
+    cv_results = []
+    history = []
+    split_num=0
+    kf = KFold(n_splits=n_splits)
+    for train_index, test_index in kf.split(X, y):
+        split_num+=1
+        print(f'split {split_num}')
+        X_train_and_val, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
+        y_train_and_val, y_test = y[train_index], y[test_index]
+        if validation_split:
+            model_return = create_and_fit_fn(X_train_and_val, y_train_and_val, patience=patience, regressor_params=model_params.copy(), verbose=verbose, validation_split=validation_split)
+        else:
+            X_train, X_val, y_train, y_val = train_test_split(X_train_and_val, y_train_and_val, test_size=validation_size)
+            model_return = create_and_fit_fn(X_train, y_train, X_val, y_val, patience=patience, regressor_params=model_params.copy(), verbose=verbose)
+        if not isinstance(model_return, tuple):
+            model_return = (model_return, None)
+        cv_results.append(output_metrics(model_return[0], X, y, X_test, y_test, 
+            should_output_graphs=should_output_graphs, should_output_metrics=should_output_metrics, should_return_result=False))
+        history.append(model_return[1])
+    metrics = ['smape', 'mape', 'mae', 'rmse', 'adj_r2']
+    metric_results = {metric: np.mean([cv_results[split_index]['test'][metric] for split_index in range(n_splits)]) for metric in metrics}
+    print(metric_results)
+    end = time.time()
+    print(f'{n_splits} CV time: {end - start}')
+    return {'cv_iterations': cv_results, 'cv_metrics': metric_results, 'history': history}
+
+def get_regression_cv_predictions(create_and_fit_fn, X, y, n_splits=10, patience=30, validation_size=0.05):
+    test_true = []
+    test_pred = []
+
+    split_num=0
+    kf = KFold(n_splits=n_splits)
+    for train_index, test_index in kf.split(X, y):
+        split_num+=1
+        print(f'split {split_num}')
+        X_train_and_val, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
+        y_train_and_val, y_test = y[train_index], y[test_index]
+        X_train, X_val, y_train, y_val = train_test_split(X_train_and_val, y_train_and_val, test_size=validation_size)
+
+        test_true.extend(y_test)
+        test_pred.extend(create_and_fit_fn(X_train, y_train, X_val, y_val, patience=patience).predict(X_test))
+    return test_true, test_pred

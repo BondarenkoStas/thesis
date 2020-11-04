@@ -35,12 +35,12 @@ def print_metrics(y_test, y_pred, cols, name):
 
 
 def predict(model, X_train, y_train, X_test, y_test, print_res=True):
-    num_col = X_train.shape[1]
+    num_col = X_test.shape[1]
     func_metrics = print_metrics if print_res else get_metrics
 
     pred_train = model.predict(X_train.values)
     pred_test = model.predict(X_test.values)
-    if len(pred_train.shape) == 2 and pred_train.shape[1] == 1:
+    if len(pred_test.shape) == 2 and pred_test.shape[1] == 1:
         pred_train = pred_train.flatten()
         pred_test = pred_test.flatten()
     return {
@@ -59,12 +59,9 @@ def predict(model, X_train, y_train, X_test, y_test, print_res=True):
     }
 
 
-def output_metrics(model, data, process, with_val):
-    num_cols = data['X_train'].shape[1]
-    data_input = [data['X_train'], data['y_train']]
-    data_input.extend(
-        [data['X_val'], data['y_val']] if with_val else [data['X_test'], data['y_test']])
-    res = predict(model, *data_input, print_res=False)
+def output_metrics(model, X, y, X_test, y_test, process=None, should_output_graphs=True, should_output_metrics=True, should_return_result=True):
+    num_cols = X.shape[1]
+    res = predict(model, X, y, X_test, y_test, print_res=False)
 
     res_back = [
         res['actual']['train'],
@@ -72,15 +69,22 @@ def output_metrics(model, data, process, with_val):
         res['actual']['test'],
         res['predictions']['test'],
     ]
-
-    for apply_function in reversed(process.y_process):
-        res_back = [apply_function(arr) for arr in res_back]
+    if process:
+        for apply_function in reversed(process.y_process):
+            res_back = [apply_function(arr) for arr in res_back]
     res_back = [np.rint(arr) for arr in res_back]
 
-    res_train = print_metrics(*res_back[:2], num_cols, 'train')
-    res_test = print_metrics(*res_back[2:], num_cols, 'test')
-    print_sorted_actual_to_predicted_graphs(*res_back, print_log=True)
-    return {'train': res_train, 'test': res_test, 'result': res_back}
+    get_metrics_fn = print_metrics if should_output_metrics else get_metrics
+    res_train = get_metrics_fn(*res_back[:2], num_cols, 'train')
+    res_test = get_metrics_fn(*res_back[2:], num_cols, 'test')
+    # res_test = get_metrics_fn(*res_back, num_cols, 'test')
+    if should_output_graphs:
+        print_sorted_actual_to_predicted_graphs(*res_back, print_log=True)
+    return {
+        'train': res_train, 
+        'test': res_test, 
+        'result': res_back if should_return_result else None
+    }
 
 
 def print_graphs(actual, predicted, title, print_log=False):
@@ -114,3 +118,32 @@ def print_sorted_actual_to_predicted_graphs_only_test(y, yhat, print_log=False):
     if print_log:
         print_graphs(y, yhat, 'validation data: log scale', print_log=True)
     print_graphs(y, yhat, 'validation data')
+
+def print_train_history(history, plot_metrics=['loss', 'accuracy', 'keras_matthews_correlation', 'keras_error_rate', 'keras_f1_score', 'auc']):
+    metrics_list = []
+    for metric in plot_metrics:
+        if metric in history.history:
+            metrics_list.append(metric)
+            metrics_list.append(f'val_{metric}')
+    for metric in metrics_list:
+        plt.plot(history.history[metric])
+    plt.xlabel('epoch')
+    plt.legend(metrics_list, loc='upper left', bbox_to_anchor=(1.05, 1), prop={'size': 14})
+    plt.show()
+
+def print_formatted(obj):
+    for p in obj:
+        val = obj[p]
+        if isinstance(val, float):
+            val = round(val, 3)
+        elif isinstance(val, str):
+            val = f'\'{val}\''
+        print(f'{p}={val},')
+
+def print_output(obj):
+    for p in obj:
+        val = obj[p] if not isinstance(obj[p], float) else round(obj[p], 4)
+        print(f'{p}: {val}')
+   
+def print_formatted_params(params, converter):
+    print_formatted(converter(params))
