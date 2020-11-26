@@ -5,6 +5,7 @@ from statistics import mean
 from sklearn import metrics
 
 pd.options.display.float_format = '{:20,.15f}'.format
+plt.rcParams["figure.figsize"] = (10,5)
 
 
 def smape(A,P):
@@ -12,6 +13,9 @@ def smape(A,P):
 
 def mape(A, P):
     return 100 * np.mean(np.abs((A - P)/A))
+
+def wape(A, P):
+    return 100 * np.sum(np.abs(P - A)) / np.sum(A)
 
 def get_metrics(y_test, y_pred, cols, name=''):
     SS_Residual = sum((y_test - y_pred)**2)
@@ -21,8 +25,11 @@ def get_metrics(y_test, y_pred, cols, name=''):
     return  {
         'smape': smape(y_test, y_pred),
         'mape': mape(y_test, y_pred),
+        'wape': wape(y_test, y_pred),
         'mae': np.rint(metrics.mean_absolute_error(y_test, y_pred)),
         'rmse': np.rint(np.sqrt(metrics.mean_squared_error(y_test, y_pred))),
+        # 'rmsle': metrics.mean_squared_log_error(y_test, y_pred),
+        'r2': metrics.r2_score(y_test, y_pred),
         'adj_r2': adj_r2,
     }
 

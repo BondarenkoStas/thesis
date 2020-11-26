@@ -274,7 +274,7 @@ def get_regression_cv_metrics(create_and_fit_fn, X, y, n_splits=10, patience=30,
         cv_results.append(output_metrics(model_return[0], X, y, X_test, y_test, 
             should_output_graphs=should_output_graphs, should_output_metrics=should_output_metrics, should_return_result=False))
         history.append(model_return[1])
-    metrics = ['smape', 'mape', 'mae', 'rmse', 'adj_r2']
+    metrics = ['smape', 'wape', 'mape', 'mae', 'rmse', 'r2', 'adj_r2']
     metric_results = {metric: np.mean([cv_results[split_index]['test'][metric] for split_index in range(n_splits)]) for metric in metrics}
     print(metric_results)
     end = time.time()

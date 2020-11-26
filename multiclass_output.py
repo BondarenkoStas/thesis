@@ -7,18 +7,23 @@ from sklearn import metrics
 plt.rcParams["figure.figsize"] = (10,5)
 
 
-def print_conf_matrix(m):
+def print_conf_matrix(m, labels=None):
     if not isinstance(m, pd.DataFrame):
-        m = pd.DataFrame(m, range(9), range(9))
+        m = pd.DataFrame(m, labels, labels)
+    print(sum(m.values.flatten()))
     sn.set(font_scale=1)
-    sn.heatmap(m, annot=True, annot_kws={"size": 12})
+    ax = sn.heatmap(m.round(2), annot=True, annot_kws={"size": 12}, fmt='g')
+    ax.xaxis.tick_top() # x axis on top
+    ax.xaxis.set_label_position('top')
+    ax.set_xticklabels(ax.get_xticklabels(), rotation = 45)
     plt.show()
 
 def get_avg_cm(preds, normalize=None):
-    return np.sum([metrics.confusion_matrix(preds[i][0], preds[i][1], normalize=normalize) for i in range(len(preds))], axis=(0))/len(preds)
+    res = np.sum([metrics.confusion_matrix(preds[i][0], preds[i][1], normalize=normalize) for i in range(len(preds))], axis=(0))
+    return res/len(preds) if normalize else res
 
-def get_avg_cm_df(preds, normalize=None):
-    return pd.DataFrame(get_avg_cm(preds, normalize=normalize), range(9), range(9))
+def get_avg_cm_df(preds, labels, normalize=None):
+    return pd.DataFrame(get_avg_cm(preds, normalize=normalize), labels, labels)
 
 def get_cv_avg_one_away_accuracy_per_class(p_class):
     get_fold_label = lambda fold, label: get_one_away_accuracy_per_class(p_class[fold][0], p_class[fold][1])[label]
@@ -55,10 +60,9 @@ def get_cv_multiclass_metrics(p_class, p_proba=None):
 def get_multiclass_metrics(p_class, p_proba=None):
     metrics_pred = {
         'one_away_accuracy': get_one_away_accuracy,
-        'balanced_accuracy_score': metrics.balanced_accuracy_score,
+        'accuracy_score': metrics.accuracy_score,
         'cohen_kappa_score': metrics.cohen_kappa_score,
         'matthews_corrcoef': metrics.matthews_corrcoef,
-        'zero_one_loss': metrics.zero_one_loss,
         'f1_score': lambda y_true, y_pred: metrics.f1_score(y_true, y_pred, average='weighted'),
         'precision_score': lambda y_true, y_pred: metrics.precision_score(y_true, y_pred, average='weighted'),
         'recall_score': lambda y_true, y_pred: metrics.recall_score(y_true, y_pred, average='weighted'),

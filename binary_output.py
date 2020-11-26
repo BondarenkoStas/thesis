@@ -94,7 +94,8 @@ def get_binary_cv_metrics(predictions, print_graphs=True):
     cv_metrics = []
     for split in predictions:
         y_true, y_pred = split
-        res = calc_binary_metrics(y_true, y_pred)
+        # res = calc_binary_metrics(y_true, y_pred)
+        res = calc_binary_metrics_all_threshold(y_true, y_pred)
         res.update(calc_confusion_values(y_true, y_pred))
         cv_metrics.append(res)
 
