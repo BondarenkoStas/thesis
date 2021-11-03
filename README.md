@@ -1,3 +1,9 @@
+### [Defence PDF](https://github.com/BondarenkoStas/thesis/blob/master/Thesis.pdf)
+
+### [Defence PPTX](https://github.com/BondarenkoStas/thesis/blob/master/Presentation.pptx)
+
+
+
 Final noteboks are 
 
 * [classification lgm](https://github.com/BondarenkoStas/thesis/blob/master/classification_lgm.ipynb)
